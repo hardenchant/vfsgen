@@ -66,6 +66,7 @@ type fileInfo struct {
 	Name             string
 	ModTime          time.Time
 	UncompressedSize int64
+	Mode             uint32
 }
 
 // dirInfo is a definition of a directory.
@@ -93,6 +94,7 @@ func findAndWriteFiles(buf *bytes.Buffer, fs http.FileSystem, toc *toc) error {
 				Name:             pathpkg.Base(path),
 				ModTime:          fi.ModTime().UTC(),
 				UncompressedSize: fi.Size(),
+				Mode:             uint32(fi.Mode()),
 			}
 
 			marker := buf.Len()
@@ -244,6 +246,7 @@ var {{.VariableName}} = func() http.FileSystem {
 
 {{define "CompressedFileInfo-Before"}}		{{quote .Path}}: &vfsgen۰CompressedFileInfo{
 			name:             {{quote .Name}},
+			mode:             {{quote .Mode}},
 			modTime:          {{template "Time" .ModTime}},
 			uncompressedSize: {{.UncompressedSize}},
 {{/* This blank line separating compressedContent is neccessary to prevent potential gofmt issues. See issue #19. */}}
@@ -255,6 +258,7 @@ var {{.VariableName}} = func() http.FileSystem {
 
 {{define "FileInfo-Before"}}		{{quote .Path}}: &vfsgen۰FileInfo{
 			name:    {{quote .Name}},
+			mode:    {{quote .Mode}},
 			modTime: {{template "Time" .ModTime}},
 			content: []byte("{{end}}{{define "FileInfo-After"}}"),
 		},
@@ -320,6 +324,7 @@ func (fs vfsgen۰FS) Open(path string) (http.File, error) {
 // vfsgen۰CompressedFileInfo is a static definition of a gzip compressed file.
 type vfsgen۰CompressedFileInfo struct {
 	name              string
+	mode              uint32
 	modTime           time.Time
 	compressedContent []byte
 	uncompressedSize  int64
@@ -336,7 +341,7 @@ func (f *vfsgen۰CompressedFileInfo) GzipBytes() []byte {
 
 func (f *vfsgen۰CompressedFileInfo) Name() string       { return f.name }
 func (f *vfsgen۰CompressedFileInfo) Size() int64        { return f.uncompressedSize }
-func (f *vfsgen۰CompressedFileInfo) Mode() os.FileMode  { return 0444 }
+func (f *vfsgen۰CompressedFileInfo) Mode() os.FileMode  { return f.mode }
 func (f *vfsgen۰CompressedFileInfo) ModTime() time.Time { return f.modTime }
 func (f *vfsgen۰CompressedFileInfo) IsDir() bool        { return false }
 func (f *vfsgen۰CompressedFileInfo) Sys() interface{}   { return nil }
@@ -395,6 +400,7 @@ var _ = ioutil.Discard
 // vfsgen۰FileInfo is a static definition of an uncompressed file (because it's not worth gzip compressing).
 type vfsgen۰FileInfo struct {
 	name    string
+	mode    uint32
 	modTime time.Time
 	content []byte
 }
@@ -408,7 +414,7 @@ func (f *vfsgen۰FileInfo) NotWorthGzipCompressing() {}
 
 func (f *vfsgen۰FileInfo) Name() string       { return f.name }
 func (f *vfsgen۰FileInfo) Size() int64        { return int64(len(f.content)) }
-func (f *vfsgen۰FileInfo) Mode() os.FileMode  { return 0444 }
+func (f *vfsgen۰FileInfo) Mode() os.FileMode  { return f.mode }
 func (f *vfsgen۰FileInfo) ModTime() time.Time { return f.modTime }
 func (f *vfsgen۰FileInfo) IsDir() bool        { return false }
 func (f *vfsgen۰FileInfo) Sys() interface{}   { return nil }
