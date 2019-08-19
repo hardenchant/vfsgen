@@ -235,6 +235,7 @@ import (
 	"os"
 	pathpkg "path"
 	"time"
+	"path/filepath"
 )
 
 {{comment .VariableComment}}
@@ -362,12 +363,16 @@ func (fs vfsgen۰FS) Walk(path string, wf WalkFunc) error {
 			return err
 		}
 		for _, f := range files {
-			err := wf(filepath.Join(path, f.Name()), nil)
-			if err != nil {
-				return err
-			}
 			if f.IsDir() {
-				return fs.Walk(filepath.Join(path, f.Name()), wf)
+				err := fs.Walk(filepath.Join(path, f.Name()), wf)
+				if err != nil {
+					return err
+				}
+			} else {
+				err := wf(filepath.Join(path, f.Name()), nil)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	default:
@@ -470,7 +475,7 @@ func (f *vfsgen۰FileInfo) NotWorthGzipCompressing() {}
 
 func (f *vfsgen۰FileInfo) Name() string       { return f.name }
 func (f *vfsgen۰FileInfo) Size() int64        { return int64(len(f.content)) }
-func (f *vfsgen۰FileInfo) Mode() os.FileMode  { return f.mode }
+func (f *vfsgen۰FileInfo) Mode() os.FileMode  { return os.FileMode(f.mode) }
 func (f *vfsgen۰FileInfo) ModTime() time.Time { return f.modTime }
 func (f *vfsgen۰FileInfo) IsDir() bool        { return false }
 func (f *vfsgen۰FileInfo) Sys() interface{}   { return nil }
