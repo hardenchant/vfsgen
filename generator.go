@@ -320,6 +320,62 @@ func (fs vfsgen۰FS) Open(path string) (http.File, error) {
 		panic(fmt.Sprintf("unexpected type %T", f))
 	}
 }
+
+func (fs vfsgen۰FS) ReadBytes(path string) ([]byte, error) {
+	path = pathpkg.Clean("/" + path)
+	f, ok := fs[path]
+	if !ok {
+		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
+	}
+
+	switch f := f.(type) {
+	case *vfsgen۰FileInfo:
+		return f.content, nil
+	case *vfsgen۰DirInfo:
+		return nil, fmt.Errorf("ReadBytes unsupported read directory %s", path)
+	default:
+		// This should never happen because we generate only the above types.
+		panic(fmt.Sprintf("unexpected type %T", f))
+	}
+}
+
+// WalkFunc template for Walk walfunc
+type WalkFunc func(path string, err error) error
+
+func (fs vfsgen۰FS) Walk(path string, wf WalkFunc) error {
+	path = pathpkg.Clean("/" + path)
+	f, ok := fs[path]
+	if !ok {
+		return &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
+	}
+
+	switch f := f.(type) {
+	case *vfsgen۰FileInfo:
+		err := wf(filepath.Join(path, f.Name()), nil)
+		if err != nil {
+			return err
+		}
+	case *vfsgen۰DirInfo:
+		d := &vfsgen۰Dir{vfsgen۰DirInfo: f}
+		files, err := d.Readdir(-1)
+		if err != nil {
+			return err
+		}
+		for _, f := range files {
+			err := wf(filepath.Join(path, f.Name()), nil)
+			if err != nil {
+				return err
+			}
+			if f.IsDir() {
+				return fs.Walk(filepath.Join(path, f.Name()), wf)
+			}
+		}
+	default:
+		// This should never happen because we generate only the above types.
+		panic(fmt.Sprintf("unexpected type %T", f))
+	}
+	return nil
+}
 {{if .HasCompressedFile}}
 // vfsgen۰CompressedFileInfo is a static definition of a gzip compressed file.
 type vfsgen۰CompressedFileInfo struct {
@@ -341,7 +397,7 @@ func (f *vfsgen۰CompressedFileInfo) GzipBytes() []byte {
 
 func (f *vfsgen۰CompressedFileInfo) Name() string       { return f.name }
 func (f *vfsgen۰CompressedFileInfo) Size() int64        { return f.uncompressedSize }
-func (f *vfsgen۰CompressedFileInfo) Mode() os.FileMode  { return f.mode }
+func (f *vfsgen۰CompressedFileInfo) Mode() os.FileMode  { return os.FileMode(f.mode)}
 func (f *vfsgen۰CompressedFileInfo) ModTime() time.Time { return f.modTime }
 func (f *vfsgen۰CompressedFileInfo) IsDir() bool        { return false }
 func (f *vfsgen۰CompressedFileInfo) Sys() interface{}   { return nil }
